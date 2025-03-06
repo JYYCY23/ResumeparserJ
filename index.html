@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Resume Extractor Pro</title>
+    <!-- Required Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://unpkg.com/mammoth@1.4.8/mammoth.browser.min.js"></script>
+</head>
+<body>
+    <input type="file" id="fileInput" multiple>
+    <table id="results"></table>
+
+    <script>
+    // Modified core functionality using browser APIs
+    class BrowserResumeExtractor {
+        constructor() {
+            this.results = [];
+        }
+
+        async processFile(file) {
+            const text = await this.extractText(file);
+            const info = this.extractInfo(text, file.name);
+            this.displayResult(info);
+        }
+
+        async extractText(file) {
+            if (file.type === 'application/pdf') {
+                return this.extractFromPDF(file);
+            } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+                return this.extractFromDOCX(file);
+            } else {
+                return this.extractFromImage(file);
+            }
+        }
+
+        async extractFromPDF(file) {
+            // PDF.js implementation
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+            const pdf = await loadingTask.promise;
+            let text = '';
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                text += content.items.map(item => item.str).join(' ');
+            }
+            return text;
+        }
+
+        async extractFromDOCX(file) {
+            // Mammoth.js implementation
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+            return result.value;
+        }
+
+        async extractFromImage(file) {
+            // Tesseract.js implementation
+            const worker = Tesseract.createWorker();
+            await worker.load();
+            await worker.loadLanguage('eng');
+            await worker.initialize('eng');
+            
+            const { data: { text } } = await worker.recognize(file);
+            await worker.terminate();
+            return text;
+        }
+
+        extractInfo(text, filename) {
+            // Same extraction logic adapted to JS
+            return {
+                name: this.extractName(filename),
+                phone: this.extractPhone(text),
+                email: this.extractEmail(text),
+                position: this.extractPosition(text),
+                company: this.extractCompany(text)
+            };
+        }
+
+        // Add your regex patterns and extraction logic here...
+    }
+
+    // Initialize and handle file input
+    const extractor = new BrowserResumeExtractor();
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        for (const file of files) {
+            await extractor.processFile(file);
+        }
+    });
+    </script>
+</body>
+</html>
