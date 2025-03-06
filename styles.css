@@ -1,20 +1,213 @@
+:root {
+    --primary-color: #4a90e2; /* Main blue color */
+    --secondary-color: #f5f7fa; /* Light background color */
+    --text-color: #2d3436; /* Dark text color */
+    --error-color: #e74c3c; /* Red for errors */
+    --success-color: #2ecc71; /* Green for success messages */
+    --border-color: #ddd; /* Light border color */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    background-color: var(--secondary-color);
+    color: var(--text-color);
 }
-h1 {
-    color: #333;
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
 }
-table {
+
+/* Header Section */
+.header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, var(--primary-color), #6c5ce7);
+    color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+/* Controls Section */
+.controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.btn {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    background-color: var(--primary-color);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    background-color: #357abd;
+    transform: translateY(-2px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Upload Section */
+.upload-section {
+    margin-bottom: 2rem;
+}
+
+.drop-zone {
+    border: 2px dashed var(--primary-color);
+    border-radius: 10px;
+    padding: 3rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: white;
+}
+
+.drop-zone--over {
+    border-color: #6c5ce7;
+    background-color: rgba(108, 92, 231, 0.05);
+}
+
+.drop-zone__prompt {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+}
+
+#fileInput {
+    display: none;
+}
+
+#fileCounter {
+    margin-top: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Results Section */
+.results-section {
+    background-color: white;
+    border-radius: 10px;
+    padding: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.loading {
+    display: none;
+    text-align: center;
+    padding: 1rem;
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.error-message {
+    display: none;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 5px;
+    background-color: #f8d7da;
+    color: var(--error-color);
+    text-align: center;
+}
+
+.results-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
+    margin-top: 1rem;
 }
-th, td {
-    padding: 10px;
-    border: 1px solid #ddd;
+
+.results-table th,
+.results-table td {
+    padding: 1rem;
     text-align: left;
+    border-bottom: 1px solid var(--border-color);
 }
-th {
-    background-color: #f4f4f4;
+
+.results-table th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.results-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .header h1 {
+        font-size: 2rem;
+    }
+
+    .header p {
+        font-size: 1rem;
+    }
+
+    .controls {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .drop-zone {
+        padding: 1.5rem;
+    }
+
+    .results-table th,
+    .results-table td {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 1.5rem;
+    }
+
+    .header h1 {
+        font-size: 1.75rem;
+    }
+
+    .header p {
+        font-size: 0.9rem;
+    }
+
+    .results-table th,
+    .results-table td {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
 }
