@@ -1,95 +1,307 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Extractor Pro</title>
+    <link rel="stylesheet" href="styles.css">
     <!-- Required Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://unpkg.com/mammoth@1.4.8/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <!-- Excel Export Library -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-    <input type="file" id="fileInput" multiple>
-    <table id="results"></table>
+    <div class="container">
+        <header class="header">
+            <h1>📄 Resume Extractor Pro</h1>
+            <p>Upload resumes (PDF/DOCX/Images) to extract candidate information</p>
+        </header>
 
+        <!-- Controls Section -->
+        <div class="controls">
+            <button class="btn" id="startBtn">▶ Start Processing</button>
+            <button class="btn" id="exportBtn">📁 Export to Excel</button>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <div class="drop-zone" id="dropZone">
+                <span class="drop-zone__prompt">📁 Drag & Drop Files or Click to Upload</span>
+                <input type="file" id="fileInput" multiple accept=".pdf,.docx,image/*">
+            </div>
+            <div id="fileCounter">Files queued: 0</div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section">
+            <div class="loading" id="loading">Processing... ⏳</div>
+            <div class="error-message" id="errorMessage"></div>
+            <table class="results-table" id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Position</th>
+                        <th>Company</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <!-- Results will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- JavaScript Code -->
     <script>
-    // Modified core functionality using browser APIs
-    class BrowserResumeExtractor {
-        constructor() {
-            this.results = [];
-        }
+        class BrowserResumeExtractor {
+            constructor() {
+                this.fileQueue = [];
+                this.loadingElement = document.getElementById('loading');
+                this.dropZone = document.getElementById('dropZone');
+                this.fileInput = document.getElementById('fileInput');
+                this.startBtn = document.getElementById('startBtn');
+                this.exportBtn = document.getElementById('exportBtn');
+                this.fileCounter = document.getElementById('fileCounter');
+                this.errorMessage = document.getElementById('errorMessage');
+                this.resultsBody = document.getElementById('resultsBody');
 
-        async processFile(file) {
-            const text = await this.extractText(file);
-            const info = this.extractInfo(text, file.name);
-            this.displayResult(info);
-        }
+                this.setupEventListeners();
+            }
 
-        async extractText(file) {
-            if (file.type === 'application/pdf') {
-                return this.extractFromPDF(file);
-            } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                return this.extractFromDOCX(file);
-            } else {
-                return this.extractFromImage(file);
+            setupEventListeners() {
+                // Drag-and-drop handling
+                this.dropZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.dropZone.classList.add('drop-zone--over');
+                });
+
+                this.dropZone.addEventListener('dragleave', () => {
+                    this.dropZone.classList.remove('drop-zone--over');
+                });
+
+                this.dropZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.dropZone.classList.remove('drop-zone--over');
+                    this.addToQueue(e.dataTransfer.files);
+                });
+
+                // Click on drop zone to trigger file input
+                this.dropZone.addEventListener('click', () => {
+                    this.fileInput.click();
+                });
+
+                // File input handling
+                this.fileInput.addEventListener('change', (e) => {
+                    this.addToQueue(e.target.files);
+                    e.target.value = ''; // Reset input
+                });
+
+                // Start processing button
+                this.startBtn.addEventListener('click', async () => {
+                    if (this.fileQueue.length === 0) {
+                        this.showError('Please upload files first!');
+                        return;
+                    }
+                    await this.processQueue();
+                });
+
+                // Export to Excel button
+                this.exportBtn.addEventListener('click', () => {
+                    this.exportToExcel();
+                });
+            }
+
+            addToQueue(files) {
+                if (!files || files.length === 0) {
+                    this.showError('No files selected!');
+                    return;
+                }
+                this.fileQueue.push(...files);
+                this.updateFileCounter();
+                this.showError(''); // Clear any previous errors
+            }
+
+            updateFileCounter() {
+                this.fileCounter.textContent = `Files queued: ${this.fileQueue.length}`;
+            }
+
+            async processQueue() {
+                this.showLoading(true);
+                try {
+                    while (this.fileQueue.length > 0) {
+                        const file = this.fileQueue.shift();
+                        await this.processFile(file);
+                        this.updateFileCounter();
+                    }
+                } catch (error) {
+                    console.error('Processing error:', error);
+                    this.showError(`Error processing file: ${error.message}`);
+                }
+                this.showLoading(false);
+            }
+
+            async processFile(file) {
+                try {
+                    const text = await this.extractText(file);
+                    const info = this.extractInfo(text, file.name);
+                    this.displayResult(info);
+                } catch (error) {
+                    console.error(`Error processing ${file.name}:`, error);
+                    this.showError(`Failed to process ${file.name}: ${error.message}`);
+                }
+            }
+
+            async extractText(file) {
+                if (file.type === "application/pdf") {
+                    return this.extractFromPDF(file);
+                } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+                    return this.extractFromDOCX(file);
+                } else if (file.type.startsWith("image/")) {
+                    return this.extractFromImage(file);
+                } else {
+                    throw new Error("Unsupported file type");
+                }
+            }
+
+            async extractFromPDF(file) {
+                const arrayBuffer = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+                const pdf = await loadingTask.promise;
+                let text = "";
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map((item) => item.str).join(" ");
+                }
+                return text;
+            }
+
+            async extractFromDOCX(file) {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                return result.value;
+            }
+
+            async extractFromImage(file) {
+                const worker = Tesseract.createWorker();
+                await worker.load();
+                await worker.loadLanguage("eng");
+                await worker.initialize("eng");
+
+                const { data: { text } } = await worker.recognize(file);
+                await worker.terminate();
+                return text;
+            }
+
+            extractInfo(text, filename) {
+                return {
+                    file: filename,
+                    name: this.extractName(filename),
+                    phone: this.extractPhone(text),
+                    email: this.extractEmail(text),
+                    position: this.extractPosition(text),
+                    company: this.extractCompany(text),
+                };
+            }
+
+            extractName(filename) {
+                const cleanName = filename.replace(/\.[^/.]+$/, ""); // Remove file extension
+                return cleanName
+                    .split(/[-_]/)
+                    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                    .join(" ");
+            }
+
+            extractPhone(text) {
+                const phones = text.match(/\+?\d[\d -]{7,}\d/g);
+                return phones ? phones[0].trim() : "Not Found";
+            }
+
+            extractEmail(text) {
+                const emails = text.match(/\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b/g);
+                return emails ? emails[0] : "Not Found";
+            }
+
+            extractPosition(text) {
+                const positionKeywords = [
+                    "engineer", "manager", "analyst", "developer", "specialist",
+                    "executive", "associate", "director", "officer", "coordinator"
+                ];
+                const pattern = new RegExp(
+                    `\\b([A-Z][a-z]+(?:\\s+[A-Za-z]+)*\\s+(${positionKeywords.join('|')}))\\b`,
+                    "gi"
+                );
+                const matches = text.match(pattern);
+                return matches ? matches[0].trim().replace(/\s{2,}/g, ' ') : "Not Found";
+            }
+
+            extractCompany(text) {
+                const patterns = [
+                    "sdn\\s?bhd", "berhad", "corp", "enterprise",
+                    "technologies", "group", "global"
+                ];
+                const pattern = new RegExp(
+                    `\\b([A-Za-z]+(?:\\s+[A-Za-z]+){1,3}\\s*(?:${patterns.join('|')})?)\\b`,
+                    "gi"
+                );
+                const matches = text.match(pattern);
+                return matches ? matches[0].toUpperCase() : "Not Found";
+            }
+
+            displayResult(info) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${info.file}</td>
+                    <td>${info.name}</td>
+                    <td>${info.phone}</td>
+                    <td>${info.email}</td>
+                    <td>${info.position}</td>
+                    <td>${info.company}</td>
+                `;
+                this.resultsBody.appendChild(row);
+            }
+
+            exportToExcel() {
+                const rows = Array.from(document.querySelectorAll('#resultsBody tr'));
+                if (rows.length === 0) {
+                    this.showError('No data to export!');
+                    return;
+                }
+
+                const data = rows.map(row => ({
+                    File: row.cells[0].textContent,
+                    Name: row.cells[1].textContent,
+                    Phone: row.cells[2].textContent,
+                    Email: row.cells[3].textContent,
+                    Position: row.cells[4].textContent,
+                    Company: row.cells[5].textContent
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumes');
+                XLSX.writeFile(workbook, 'resume_data.xlsx');
+            }
+
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = message ? 'block' : 'none';
+            }
+
+            showLoading(show) {
+                this.loadingElement.style.display = show ? 'block' : 'none';
+                this.startBtn.disabled = show;
             }
         }
 
-        async extractFromPDF(file) {
-            // PDF.js implementation
-            const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument(arrayBuffer);
-            const pdf = await loadingTask.promise;
-            let text = '';
-            
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                text += content.items.map(item => item.str).join(' ');
-            }
-            return text;
-        }
-
-        async extractFromDOCX(file) {
-            // Mammoth.js implementation
-            const arrayBuffer = await file.arrayBuffer();
-            const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
-            return result.value;
-        }
-
-        async extractFromImage(file) {
-            // Tesseract.js implementation
-            const worker = Tesseract.createWorker();
-            await worker.load();
-            await worker.loadLanguage('eng');
-            await worker.initialize('eng');
-            
-            const { data: { text } } = await worker.recognize(file);
-            await worker.terminate();
-            return text;
-        }
-
-        extractInfo(text, filename) {
-            // Same extraction logic adapted to JS
-            return {
-                name: this.extractName(filename),
-                phone: this.extractPhone(text),
-                email: this.extractEmail(text),
-                position: this.extractPosition(text),
-                company: this.extractCompany(text)
-            };
-        }
-
-        // Add your regex patterns and extraction logic here...
-    }
-
-    // Initialize and handle file input
-    const extractor = new BrowserResumeExtractor();
-    document.getElementById('fileInput').addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files);
-        for (const file of files) {
-            await extractor.processFile(file);
-        }
-    });
+        // Initialize the app
+        const extractor = new BrowserResumeExtractor();
     </script>
 </body>
 </html>
